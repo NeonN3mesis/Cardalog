@@ -24,6 +24,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.googlecode.tesseract.android.TessBaseAPI;
 
 import java.io.File;
@@ -211,12 +212,14 @@ public class ScanActivity extends AppCompatActivity {
         } catch (IOException e) {
             Log.e(TAG, "Error copying trained data file", e);
         }
+    }
 
-        @Override
-        protected void onDestroy () {
-            super.onDestroy();
-            if (tessBaseAPI != null) {
-                tessBaseAPI.end();
-            }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (tessBaseAPI != null) {
+            tessBaseAPI.end();
         }
     }
+}
+
