@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Cardalog</string>
+    <string name="capture_image_button_description">Capture image</string>
+</resources>
