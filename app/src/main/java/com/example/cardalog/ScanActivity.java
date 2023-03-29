@@ -62,7 +62,7 @@ public class ScanActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scan);
 
-        ImageButton takePictureButton = findViewById(R.id.captureImageButton);
+        Button takePictureButton = findViewById(R.id.takePictureButton);
         takePictureButton.setOnClickListener(v -> takePictureAndAnalyze());
 
         String language = "eng";
