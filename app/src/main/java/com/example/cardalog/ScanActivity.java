@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.util.Log;
 import android.widget.ImageButton;
+import android.widget.Button;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -23,6 +24,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.camera.core.Camera;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.googlecode.tesseract.android.TessBaseAPI;
@@ -43,6 +45,7 @@ public class ScanActivity extends AppCompatActivity {
     private ImageCapture imageCapture;
     private ImageButton captureImageButton;
 
+
     private TessBaseAPI tessBaseAPI;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
@@ -59,22 +62,31 @@ public class ScanActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scan);
 
+        ImageButton takePictureButton = findViewById(R.id.captureImageButton);
+        takePictureButton.setOnClickListener(v -> takePictureAndAnalyze());
+
         String language = "eng";
         tessBaseAPI = new TessBaseAPI();
-        tessBaseAPI.init(getFilesDir().getAbsolutePath(), language);
 
         copyTrainedData();
+        initializeTesseract(language);
 
         previewView = findViewById(R.id.previewView);
-        captureImageButton = findViewById(R.id.captureImageButton);
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
             requestPermissionLauncher.launch(Manifest.permission.CAMERA);
         }
+    }
 
-        captureImageButton.setOnClickListener(v -> takePictureAndAnalyze());
+    private void initializeTesseract(String language) {
+        File tessdataFolder = new File(getFilesDir(), "tessdata");
+        if (tessdataFolder.exists()) {
+            tessBaseAPI.init(getFilesDir().toString(), language);
+        } else {
+            Log.e(TAG, "tessdata folder not found");
+        }
     }
 
     private void startCamera() {
@@ -83,7 +95,19 @@ public class ScanActivity extends AppCompatActivity {
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                bindPreview(cameraProvider);
+
+                Preview preview = new Preview.Builder().build();
+                imageCapture = new ImageCapture.Builder().build();
+
+                CameraSelector cameraSelector = new CameraSelector.Builder()
+                        .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                        .build();
+
+                cameraProvider.unbindAll();
+                Camera camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
+
+                preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
             } catch (ExecutionException | InterruptedException e) {
                 // No errors need to be handled for this Future.
                 // This should never be reached.
@@ -194,7 +218,9 @@ public class ScanActivity extends AppCompatActivity {
         try {
             InputStream inputStream = getAssets().open(trainedDataFileName);
             File tessdataFolder = new File(getFilesDir(), "tessdata");
-            tessdataFolder.mkdirs();
+            if (!tessdataFolder.exists()) {
+                tessdataFolder.mkdirs();
+            }
             File trainedDataFile = new File(tessdataFolder, language + ".traineddata");
 
             if (!trainedDataFile.exists()) {
