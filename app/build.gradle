@@ -61,6 +61,7 @@ dependencies {
     implementation 'com.rmtheis:tess-two:9.1.0'
     implementation 'com.karumi:dexter:6.2.3'
     implementation 'commons-io:commons-io:2.11.0'
+    implementation 'org.bytedeco.javacpp-presets:opencv:4.5.1-1.5.5'
 
     def camerax_version = '1.2.2'
     implementation "androidx.camera:camera-core:${camerax_version}"

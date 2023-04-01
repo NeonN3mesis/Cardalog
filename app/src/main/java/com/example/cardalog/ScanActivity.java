@@ -1,19 +1,15 @@
 package com.example.cardalog;
 
 import android.Manifest;
-import android.content.ContentUris;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.ContactsContract;
 import android.util.Log;
-import android.widget.ImageButton;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultCallback;
@@ -21,23 +17,18 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.camera.core.Camera;
 import androidx.lifecycle.LifecycleOwner;
-import android.content.res.AssetManager;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.googlecode.tesseract.android.TessBaseAPI;
-import com.example.cardalog.BusinessCardInfo;
-import com.example.cardalog.ConfirmDetailsActivity;
-
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -47,7 +38,7 @@ import java.io.OutputStream;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.commons.io.IOUtils;
+
 
 
 public class ScanActivity extends AppCompatActivity {
@@ -251,6 +242,7 @@ public class ScanActivity extends AppCompatActivity {
         Bitmap bitmap = BitmapFactory.decodeFile(imageUri.getPath());
         tessBaseAPI.setImage(bitmap);
         String recognizedText = tessBaseAPI.getUTF8Text();
+        Log.d(TAG, "Recognized text: " + recognizedText);
         BusinessCardInfo info = parseTesseractOutput(recognizedText);
 
         // Start ConfirmDetailsActivity
@@ -264,11 +256,12 @@ public class ScanActivity extends AppCompatActivity {
         BusinessCardInfo info = new BusinessCardInfo();
 
         // Extract name
-        Pattern namePattern = Pattern.compile("(?<=Name\\s*:\\s*)\\w+\\s*\\w+", Pattern.CASE_INSENSITIVE);
+        Pattern namePattern = Pattern.compile("Name\\s*:\\s*(\\w+\\s*\\w+)", Pattern.CASE_INSENSITIVE);
         Matcher nameMatcher = namePattern.matcher(text);
         if (nameMatcher.find()) {
-            info.name = nameMatcher.group().trim();
+            info.name = nameMatcher.group(1).trim();
         }
+        Log.d(TAG, "Name: " + info.name);
 
         // Extract phone number
         Pattern phonePattern = Pattern.compile("(?:\\+\\d{1,2}\\s?)?\\(?\\d{1,4}?\\)?[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,9}");
@@ -276,6 +269,7 @@ public class ScanActivity extends AppCompatActivity {
         if (phoneMatcher.find()) {
             info.phoneNumber = phoneMatcher.group().trim();
         }
+        Log.d(TAG, "Phone Number: " +info.phoneNumber);
 
         // Extract email
         Pattern emailPattern = Pattern.compile("([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)");
@@ -283,26 +277,27 @@ public class ScanActivity extends AppCompatActivity {
         if (emailMatcher.find()) {
             info.email = emailMatcher.group().trim();
         }
+        Log.d(TAG, "Email: " + info.email);
 
         // Extract mailing address
-        Pattern addressPattern = Pattern.compile("(?<=Address\\s*:\\s*)(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
+        Pattern addressPattern = Pattern.compile("Address\\s*:\\s*(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
         Matcher addressMatcher = addressPattern.matcher(text);
         if (addressMatcher.find()) {
             info.address = addressMatcher.group().trim();
         }
 
         // Extract business name
-        Pattern businessNamePattern = Pattern.compile("(?<=Business\\s*:\\s*)(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
+        Pattern businessNamePattern = Pattern.compile("Business\\s*:\\s*(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
         Matcher businessNameMatcher = businessNamePattern.matcher(text);
         if (businessNameMatcher.find()) {
-            info.businessName = businessNameMatcher.group().trim();
+            info.businessName = businessNameMatcher.group(1).trim();
         }
 
         // Extract job title
-        Pattern jobTitlePattern = Pattern.compile("(?<=Title\\s*:\\s)(.)(?=\n)", Pattern.CASE_INSENSITIVE);
+        Pattern jobTitlePattern = Pattern.compile("Title\\s*:\\s*(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
         Matcher jobTitleMatcher = jobTitlePattern.matcher(text);
         if (jobTitleMatcher.find()) {
-            info.jobTitle = jobTitleMatcher.group().trim();
+            info.jobTitle = jobTitleMatcher.group(1).trim();
         }
         return info;
     }
