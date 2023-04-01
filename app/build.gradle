@@ -5,7 +5,12 @@ plugins {
 
 android {
     compileSdkVersion 33
-
+    lintOptions {
+        warning "deprecation"
+    }
+    tasks.withType(JavaCompile) {
+        options.compilerArgs += ["-Xlint:deprecation"]
+    }
     defaultConfig {
         applicationId "com.example.cardalog"
         minSdkVersion 21
@@ -16,7 +21,9 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     packagingOptions {
-        exclude 'META-INF/DEPENDENCIES'
+        resources {
+            excludes += ['META-INF/DEPENDENCIES']
+        }
     }
 
     buildTypes {
@@ -32,6 +39,7 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+    namespace 'com.example.cardalog'
 }
 
 repositories {
@@ -52,6 +60,7 @@ dependencies {
     implementation 'androidx.concurrent:concurrent-futures:1.1.0'
     implementation 'com.rmtheis:tess-two:9.1.0'
     implementation 'com.karumi:dexter:6.2.3'
+    implementation 'commons-io:commons-io:2.11.0'
 
     def camerax_version = '1.2.2'
     implementation "androidx.camera:camera-core:${camerax_version}"

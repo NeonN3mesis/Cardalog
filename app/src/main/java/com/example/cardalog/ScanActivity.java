@@ -1,8 +1,11 @@
 package com.example.cardalog;
 
 import android.Manifest;
+import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -11,7 +14,9 @@ import android.provider.ContactsContract;
 import android.util.Log;
 import android.widget.ImageButton;
 import android.widget.Button;
+import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -25,9 +30,14 @@ import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.camera.core.Camera;
+import androidx.lifecycle.LifecycleOwner;
+import android.content.res.AssetManager;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.googlecode.tesseract.android.TessBaseAPI;
+import com.example.cardalog.BusinessCardInfo;
+import com.example.cardalog.ConfirmDetailsActivity;
+
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -37,6 +47,8 @@ import java.io.OutputStream;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.commons.io.IOUtils;
+
 
 public class ScanActivity extends AppCompatActivity {
 
@@ -45,17 +57,20 @@ public class ScanActivity extends AppCompatActivity {
     private ImageCapture imageCapture;
     private ImageButton captureImageButton;
 
-
     private TessBaseAPI tessBaseAPI;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-                if (isGranted) {
-                    startCamera();
-                } else {
-                    finish();
-                }
-            });
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(),
+                    new ActivityResultCallback<Boolean>() {
+                        @Override
+                        public void onActivityResult(Boolean isGranted) {
+                            if (isGranted) {
+                                startCamera();
+                            } else {
+                                finish();
+                            }
+                        }
+                    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,7 +83,26 @@ public class ScanActivity extends AppCompatActivity {
         String language = "eng";
         tessBaseAPI = new TessBaseAPI();
 
-        copyTrainedData();
+        copyTrainedData();{
+            try {
+                File tessdataFolder = new File(getFilesDir(), "tessdata");
+                tessdataFolder.mkdirs();
+                InputStream trainedDataInputStream = getAssets().open("tessdata/eng.traineddata");
+                File trainedDataFile = new File(tessdataFolder, "eng.traineddata");
+                OutputStream trainedDataOutputStream = new FileOutputStream(trainedDataFile);
+                byte[] buffer = new byte[1024];
+                int read;
+                while ((read = trainedDataInputStream.read(buffer)) != -1) {
+                    trainedDataOutputStream.write(buffer, 0, read);
+                }
+                trainedDataInputStream.close();
+                trainedDataOutputStream.flush();
+                trainedDataOutputStream.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to copy trained data", e);
+            }
+        }
+
         initializeTesseract(language);
 
         previewView = findViewById(R.id.previewView);
@@ -78,8 +112,52 @@ public class ScanActivity extends AppCompatActivity {
         } else {
             requestPermissionLauncher.launch(Manifest.permission.CAMERA);
         }
+
+        TextView nameTextView = findViewById(R.id.name);
+        TextView titleTextView = findViewById(R.id.Title);
+        TextView companyTextView = findViewById(R.id.company);
+        TextView phoneNumberTextView = findViewById(R.id.phone_number);
+        TextView emailTextView = findViewById(R.id.email);
+        TextView websiteTextView = findViewById(R.id.website);
+        TextView addressTextView = findViewById(R.id.address);
+
+        BusinessCardInfo info = new BusinessCardInfo();
+        info.setName("John Doe");
+        info.setJobTitle("Software Engineer");
+        info.setBusinessName("Example Company");
+        info.setPhoneNumber("123-456-7890");
+        info.setEmail("john.doe@example.com");
+        info.setWebsite("www.example.com");
+        info.setAddress("123 Example Street, City, Country");
+
+        nameTextView.setText(info.getName());
+        titleTextView.setText(info.getJobTitle());
+        companyTextView.setText(info.getBusinessName());
+        phoneNumberTextView.setText(info.getPhoneNumber());
+        emailTextView.setText(info.getEmail());
+        websiteTextView.setText(info.getWebsite());
+        addressTextView.setText(info.getAddress());
     }
 
+    private void copyTrainedData() {
+        try {
+            File tessdataFolder = new File(getFilesDir(), "tessdata");
+            tessdataFolder.mkdirs();
+            InputStream trainedDataInputStream = getAssets().open("tessdata/eng.traineddata");
+            File trainedDataFile = new File(tessdataFolder, "eng.traineddata");
+            OutputStream trainedDataOutputStream = new FileOutputStream(trainedDataFile);
+            byte[] buffer = new byte[1024];
+            int read;
+            while ((read = trainedDataInputStream.read(buffer)) != -1) {
+                trainedDataOutputStream.write(buffer, 0, read);
+            }
+            trainedDataInputStream.close();
+            trainedDataOutputStream.flush();
+            trainedDataOutputStream.close();
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to copy trained data", e);
+        }
+    }
     private void initializeTesseract(String language) {
         File tessdataFolder = new File(getFilesDir(), "tessdata");
         if (tessdataFolder.exists()) {
@@ -95,22 +173,24 @@ public class ScanActivity extends AppCompatActivity {
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-
                 Preview preview = new Preview.Builder().build();
-                imageCapture = new ImageCapture.Builder().build();
-
                 CameraSelector cameraSelector = new CameraSelector.Builder()
                         .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                         .build();
 
                 cameraProvider.unbindAll();
-                Camera camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
 
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
+                Camera camera = cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, preview);
+
+                imageCapture = new ImageCapture.Builder()
+                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                        .build();
+
+                cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, imageCapture, preview);
 
             } catch (ExecutionException | InterruptedException e) {
-                // No errors need to be handled for this Future.
-                // This should never be reached.
+                Log.e(TAG, "Error starting camera", e);
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -119,21 +199,24 @@ public class ScanActivity extends AppCompatActivity {
         Preview preview = new Preview.Builder()
                 .build();
 
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
         CameraSelector cameraSelector = new CameraSelector.Builder()
                 .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                 .build();
 
-        imageCapture = new ImageCapture.Builder()
-                .build();
-
         cameraProvider.unbindAll();
 
-        cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
-
-        preview.setSurfaceProvider(previewView.getSurfaceProvider());
+        try {
+            cameraProvider.bindToLifecycle(
+                    this, cameraSelector, preview);
+        } catch (Exception e) {
+            Log.e(TAG, "Use case binding failed", e);
+        }
     }
 
     private void takePictureAndAnalyze() {
+        Log.d(TAG, "takePictureAndAnalyze called");
         File outputDirectory = getOutputDirectory();
         File outputFile = new File(outputDirectory, System.currentTimeMillis() + ".jpg");
 
@@ -142,14 +225,13 @@ public class ScanActivity extends AppCompatActivity {
 
         imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageSavedCallback() {
-                    @Override
-                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                    @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                        Log.d(TAG, "Image saved successfully");
                         Uri savedUri = Uri.fromFile(outputFile);
                         analyzeImage(savedUri);
                     }
 
-                    @Override
-                    public void onError(@NonNull ImageCaptureException exception) {
+                    @Override public void onError(@NonNull ImageCaptureException exception) {
                         Log.e(TAG, "Photo capture failed: " + exception.getMessage(), exception);
                     }
                 });
@@ -169,83 +251,59 @@ public class ScanActivity extends AppCompatActivity {
         Bitmap bitmap = BitmapFactory.decodeFile(imageUri.getPath());
         tessBaseAPI.setImage(bitmap);
         String recognizedText = tessBaseAPI.getUTF8Text();
-        processTextRecognitionResult(recognizedText);
+        BusinessCardInfo info = parseTesseractOutput(recognizedText);
+
+        // Start ConfirmDetailsActivity
+        Intent intent = new Intent(this, ConfirmDetailsActivity.class);
+        intent.putExtra("info", info);
+        intent.putExtra("imageUri", imageUri.toString());
+        startActivity(intent);
     }
 
-    private void processTextRecognitionResult(String text) {
-        // Extract the contact information from the recognized text.
-        String displayName = "";
-        String phoneNumber = "";
-        String email = "";
+    private BusinessCardInfo parseTesseractOutput(String text) {
+        BusinessCardInfo info = new BusinessCardInfo();
 
         // Extract name
-        Pattern namePattern = Pattern.compile("Name\\s*:\\s*(\\w+\\s*\\w+)", Pattern.CASE_INSENSITIVE);
+        Pattern namePattern = Pattern.compile("(?<=Name\\s*:\\s*)\\w+\\s*\\w+", Pattern.CASE_INSENSITIVE);
         Matcher nameMatcher = namePattern.matcher(text);
         if (nameMatcher.find()) {
-            displayName = nameMatcher.group(1).trim();
+            info.name = nameMatcher.group().trim();
         }
 
         // Extract phone number
         Pattern phonePattern = Pattern.compile("(?:\\+\\d{1,2}\\s?)?\\(?\\d{1,4}?\\)?[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,9}");
         Matcher phoneMatcher = phonePattern.matcher(text);
         if (phoneMatcher.find()) {
-            phoneNumber = phoneMatcher.group().trim();
+            info.phoneNumber = phoneMatcher.group().trim();
         }
 
         // Extract email
         Pattern emailPattern = Pattern.compile("([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)");
         Matcher emailMatcher = emailPattern.matcher(text);
         if (emailMatcher.find()) {
-            email = emailMatcher.group().trim();
+            info.email = emailMatcher.group().trim();
         }
 
-        // Open the new contact screen and populate the fields.
-        Intent intent = new Intent(Intent.ACTION_INSERT);
-        intent.setType(ContactsContract.Contacts.CONTENT_TYPE);
-        intent.putExtra(ContactsContract.Intents.Insert.NAME, displayName);
-        intent.putExtra(ContactsContract.Intents.Insert.PHONE, phoneNumber);
-        intent.putExtra(ContactsContract.Intents.Insert.EMAIL, email);
-
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivity(intent);
+        // Extract mailing address
+        Pattern addressPattern = Pattern.compile("(?<=Address\\s*:\\s*)(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
+        Matcher addressMatcher = addressPattern.matcher(text);
+        if (addressMatcher.find()) {
+            info.address = addressMatcher.group().trim();
         }
-    }
 
-    private void copyTrainedData() {
-        String language = "eng";
-        String trainedDataFileName = "tessdata/" + language + ".traineddata";
-
-        try {
-            InputStream inputStream = getAssets().open(trainedDataFileName);
-            File tessdataFolder = new File(getFilesDir(), "tessdata");
-            if (!tessdataFolder.exists()) {
-                tessdataFolder.mkdirs();
-            }
-            File trainedDataFile = new File(tessdataFolder, language + ".traineddata");
-
-            if (!trainedDataFile.exists()) {
-                OutputStream outputStream = new FileOutputStream(trainedDataFile);
-                byte[] buffer = new byte[1024];
-                int read;
-                while ((read = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, read);
-                }
-
-                outputStream.flush();
-                outputStream.close();
-            }
-            inputStream.close();
-        } catch (IOException e) {
-            Log.e(TAG, "Error copying trained data file", e);
+        // Extract business name
+        Pattern businessNamePattern = Pattern.compile("(?<=Business\\s*:\\s*)(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
+        Matcher businessNameMatcher = businessNamePattern.matcher(text);
+        if (businessNameMatcher.find()) {
+            info.businessName = businessNameMatcher.group().trim();
         }
-    }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (tessBaseAPI != null) {
-            tessBaseAPI.end();
+        // Extract job title
+        Pattern jobTitlePattern = Pattern.compile("(?<=Title\\s*:\\s)(.)(?=\n)", Pattern.CASE_INSENSITIVE);
+        Matcher jobTitleMatcher = jobTitlePattern.matcher(text);
+        if (jobTitleMatcher.find()) {
+            info.jobTitle = jobTitleMatcher.group().trim();
         }
+        return info;
     }
 }
-
