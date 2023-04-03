@@ -5,12 +5,15 @@ plugins {
 
 android {
     compileSdkVersion 33
+    buildToolsVersion "30.0.3"
     lintOptions {
         warning "deprecation"
     }
+
     tasks.withType(JavaCompile) {
         options.compilerArgs += ["-Xlint:deprecation"]
     }
+
     defaultConfig {
         applicationId "com.example.cardalog"
         minSdkVersion 21
@@ -20,6 +23,7 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
+
     packagingOptions {
         resources {
             excludes += ['META-INF/DEPENDENCIES']
@@ -32,19 +36,27 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
     kotlinOptions {
         jvmTarget = '1.8'
     }
-    namespace 'com.example.cardalog'
 }
 
 repositories {
     google()
     mavenCentral()
+    maven {
+        url 'https://maven.pkg.github.com/bytedeco/javacpp-presets'
+        credentials {
+            username = System.getenv("GITHUB_USER")
+            password = System.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
+        }
+    }
     maven { url 'https://jitpack.io' }
 }
 
@@ -61,7 +73,8 @@ dependencies {
     implementation 'com.rmtheis:tess-two:9.1.0'
     implementation 'com.karumi:dexter:6.2.3'
     implementation 'commons-io:commons-io:2.11.0'
-    implementation 'org.bytedeco.javacpp-presets:opencv:4.5.1-1.5.5'
+    implementation 'org.bytedeco.javacpp-presets:opencv:4.5.3-1.5.6'
+    implementation 'org.bytedeco:opencv:4.6.0-1.5.8'
 
     def camerax_version = '1.2.2'
     implementation "androidx.camera:camera-core:${camerax_version}"
@@ -74,9 +87,12 @@ dependencies {
 
     // Updated Kotlin dependencies
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.10"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.10"
+
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+
+    implementation project(':opencv')
+
 }

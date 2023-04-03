@@ -11,6 +11,7 @@ import android.util.Log;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
@@ -26,9 +27,16 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
+import androidx.core.app.ActivityCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.googlecode.tesseract.android.TessBaseAPI;
+
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
+import org.opencv.android.OpenCVLoader;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -39,11 +47,17 @@ import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
-
 public class ScanActivity extends AppCompatActivity {
 
     private static final String TAG = "ScanActivity";
+    private static final String TESS_LANG = "eng"; // Replace "eng" with your desired language
+    private static final int REQUEST_CODE_PERMISSIONS = 1;
+    private static final String[] PERMISSIONS_REQUIRED = {
+            Manifest.permission.CAMERA,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.READ_EXTERNAL_STORAGE
+    };
+
     private PreviewView previewView;
     private ImageCapture imageCapture;
     private ImageButton captureImageButton;
@@ -65,6 +79,12 @@ public class ScanActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        if (!OpenCVLoader.initDebug()) {
+            Log.e("OpenCV", "Unable to load OpenCV!");
+        } else {
+            Log.d("OpenCV", "OpenCV loaded successfully!");
+        }
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scan);
 
@@ -74,26 +94,7 @@ public class ScanActivity extends AppCompatActivity {
         String language = "eng";
         tessBaseAPI = new TessBaseAPI();
 
-        copyTrainedData();{
-            try {
-                File tessdataFolder = new File(getFilesDir(), "tessdata");
-                tessdataFolder.mkdirs();
-                InputStream trainedDataInputStream = getAssets().open("tessdata/eng.traineddata");
-                File trainedDataFile = new File(tessdataFolder, "eng.traineddata");
-                OutputStream trainedDataOutputStream = new FileOutputStream(trainedDataFile);
-                byte[] buffer = new byte[1024];
-                int read;
-                while ((read = trainedDataInputStream.read(buffer)) != -1) {
-                    trainedDataOutputStream.write(buffer, 0, read);
-                }
-                trainedDataInputStream.close();
-                trainedDataOutputStream.flush();
-                trainedDataOutputStream.close();
-            } catch (IOException e) {
-                Log.e(TAG, "Failed to copy trained data", e);
-            }
-        }
-
+        copyTrainedData();
         initializeTesseract(language);
 
         previewView = findViewById(R.id.previewView);
@@ -129,176 +130,145 @@ public class ScanActivity extends AppCompatActivity {
         websiteTextView.setText(info.getWebsite());
         addressTextView.setText(info.getAddress());
     }
-
-    private void copyTrainedData() {
-        try {
-            File tessdataFolder = new File(getFilesDir(), "tessdata");
-            tessdataFolder.mkdirs();
-            InputStream trainedDataInputStream = getAssets().open("tessdata/eng.traineddata");
-            File trainedDataFile = new File(tessdataFolder, "eng.traineddata");
-            OutputStream trainedDataOutputStream = new FileOutputStream(trainedDataFile);
-            byte[] buffer = new byte[1024];
-            int read;
-            while ((read = trainedDataInputStream.read(buffer)) != -1) {
-                trainedDataOutputStream.write(buffer, 0, read);
-            }
-            trainedDataInputStream.close();
-            trainedDataOutputStream.flush();
-            trainedDataOutputStream.close();
-        } catch (IOException e) {
-            Log.e(TAG, "Failed to copy trained data", e);
-        }
-    }
-    private void initializeTesseract(String language) {
-        File tessdataFolder = new File(getFilesDir(), "tessdata");
-        if (tessdataFolder.exists()) {
-            tessBaseAPI.init(getFilesDir().toString(), language);
-        } else {
-            Log.e(TAG, "tessdata folder not found");
-        }
-    }
-
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                Preview preview = new Preview.Builder().build();
-                CameraSelector cameraSelector = new CameraSelector.Builder()
-                        .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                        .build();
-
-                cameraProvider.unbindAll();
-
-                preview.setSurfaceProvider(previewView.getSurfaceProvider());
-                Camera camera = cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, preview);
-
-                imageCapture = new ImageCapture.Builder()
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .build();
-
-                cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, imageCapture, preview);
-
+                bindPreview(cameraProvider);
             } catch (ExecutionException | InterruptedException e) {
-                Log.e(TAG, "Error starting camera", e);
+                Log.e(TAG, "Error starting camera: ", e);
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
     private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
-        Preview preview = new Preview.Builder()
-                .build();
-
-        preview.setSurfaceProvider(previewView.getSurfaceProvider());
-
+        Preview preview = new Preview.Builder().build();
         CameraSelector cameraSelector = new CameraSelector.Builder()
                 .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                 .build();
 
-        cameraProvider.unbindAll();
+        imageCapture = new ImageCapture.Builder()
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                .build();
 
-        try {
-            cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview);
-        } catch (Exception e) {
-            Log.e(TAG, "Use case binding failed", e);
-        }
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+        Camera camera = cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, preview, imageCapture);
     }
 
     private void takePictureAndAnalyze() {
-        Log.d(TAG, "takePictureAndAnalyze called");
-        File outputDirectory = getOutputDirectory();
-        File outputFile = new File(outputDirectory, System.currentTimeMillis() + ".jpg");
+        ImageCapture.OutputFileOptions outputFileOptions =
+                new ImageCapture.OutputFileOptions.Builder(new File(getCacheDir(), "tmp.jpg")).build();
+        imageCapture.takePicture(outputFileOptions, ContextCompat.getMainExecutor(this), new ImageCapture.OnImageSavedCallback() {
+            @Override
+            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                Uri savedUri = outputFileResults.getSavedUri();
+                if (savedUri == null) {
+                    savedUri = Uri.fromFile(new File(getCacheDir(), "tmp.jpg"));
+                }
+                analyzeImage(savedUri);
+            }
 
-        ImageCapture.OutputFileOptions outputOptions =
-                new ImageCapture.OutputFileOptions.Builder(outputFile).build();
-
-        imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(this),
-                new ImageCapture.OnImageSavedCallback() {
-                    @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                        Log.d(TAG, "Image saved successfully");
-                        Uri savedUri = Uri.fromFile(outputFile);
-                        analyzeImage(savedUri);
-                    }
-
-                    @Override public void onError(@NonNull ImageCaptureException exception) {
-                        Log.e(TAG, "Photo capture failed: " + exception.getMessage(), exception);
-                    }
-                });
+            @Override
+            public void onError(@NonNull ImageCaptureException exception) {
+                Log.e(TAG, "Error capturing image: ", exception);
+            }
+        });
     }
 
-    private File getOutputDirectory() {
-        File[] mediaDirs = getExternalMediaDirs();
-        if (mediaDirs.length > 0) {
-            File outputDir = new File(mediaDirs[0], getResources().getString(R.string.app_name));
-            outputDir.mkdirs();
-            return outputDir;
-        }
-        return getFilesDir();
-    }
+    private void analyzeImage(Uri uri) {
+        Bitmap bitmap = BitmapFactory.decodeFile(uri.getPath());
+        Mat src = new Mat(bitmap.getHeight(), bitmap.getWidth(), CvType.CV_8UC4);
+        org.opencv.android.Utils.bitmapToMat(bitmap, src);
+        Mat gray = new Mat();
+        Imgproc.cvtColor(src, gray, Imgproc.COLOR_BGR2GRAY);
+        Imgproc.adaptiveThreshold(gray, gray, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 11, 2);
 
-    private void analyzeImage(Uri imageUri) {
-        Bitmap bitmap = BitmapFactory.decodeFile(imageUri.getPath());
-        tessBaseAPI.setImage(bitmap);
+        Bitmap processedBitmap = Bitmap.createBitmap(gray.cols(), gray.rows(), Bitmap.Config.ARGB_8888);
+        org.opencv.android.Utils.matToBitmap(gray, processedBitmap);
+
+        tessBaseAPI.setImage(processedBitmap);
         String recognizedText = tessBaseAPI.getUTF8Text();
-        Log.d(TAG, "Recognized text: " + recognizedText);
-        BusinessCardInfo info = parseTesseractOutput(recognizedText);
 
-        // Start ConfirmDetailsActivity
-        Intent intent = new Intent(this, ConfirmDetailsActivity.class);
-        intent.putExtra("info", info);
-        intent.putExtra("imageUri", imageUri.toString());
-        startActivity(intent);
+        processRecognizedText(recognizedText);
     }
 
-    private BusinessCardInfo parseTesseractOutput(String text) {
-        BusinessCardInfo info = new BusinessCardInfo();
+    private void processRecognizedText(String text) {
+        Log.d(TAG, "Recognized text: " + text);
 
-        // Extract name
-        Pattern namePattern = Pattern.compile("Name\\s*:\\s*(\\w+\\s*\\w+)", Pattern.CASE_INSENSITIVE);
-        Matcher nameMatcher = namePattern.matcher(text);
-        if (nameMatcher.find()) {
-            info.name = nameMatcher.group(1).trim();
-        }
-        Log.d(TAG, "Name: " + info.name);
+        // You can now use the recognized text to extract relevant information from the business card
+        // For example, you can use regular expressions to extract phone numbers, email addresses, and more
+    }
 
-        // Extract phone number
-        Pattern phonePattern = Pattern.compile("(?:\\+\\d{1,2}\\s?)?\\(?\\d{1,4}?\\)?[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,9}");
-        Matcher phoneMatcher = phonePattern.matcher(text);
-        if (phoneMatcher.find()) {
-            info.phoneNumber = phoneMatcher.group().trim();
-        }
-        Log.d(TAG, "Phone Number: " +info.phoneNumber);
+    private void initializeTesseract(String language) {
+        String datapath = getFilesDir() + "/tesseract/";
+        tessBaseAPI.init(datapath, language);
+    }
 
-        // Extract email
-        Pattern emailPattern = Pattern.compile("([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)");
-        Matcher emailMatcher = emailPattern.matcher(text);
-        if (emailMatcher.find()) {
-            info.email = emailMatcher.group().trim();
+    private void copyTrainedData() {
+        String[] paths = new String[]{getFilesDir() + "/tesseract/", getFilesDir() + "/tesseract/tessdata/"};
+        for (String path : paths) {
+            File dir = new File(path);
+            if (!dir.exists()) {
+                if (!dir.mkdirs()) {
+                    Log.e(TAG, "ERROR: Creation of directory " + path + " failed");
+                    return;
+                }
+            }
         }
-        Log.d(TAG, "Email: " + info.email);
+        String trainedData = getFilesDir() + "/tesseract/tessdata/" + TESS_LANG + ".traineddata";
+        File file = new File(trainedData);
+        if (!file.exists()) {
+            try {
+                InputStream in = getAssets().open("tessdata/" + TESS_LANG + ".traineddata");
+                OutputStream out = new FileOutputStream(trainedData);
 
-        // Extract mailing address
-        Pattern addressPattern = Pattern.compile("Address\\s*:\\s*(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
-        Matcher addressMatcher = addressPattern.matcher(text);
-        if (addressMatcher.find()) {
-            info.address = addressMatcher.group().trim();
-        }
+                byte[] buffer = new byte[1024];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
 
-        // Extract business name
-        Pattern businessNamePattern = Pattern.compile("Business\\s*:\\s*(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
-        Matcher businessNameMatcher = businessNamePattern.matcher(text);
-        if (businessNameMatcher.find()) {
-            info.businessName = businessNameMatcher.group(1).trim();
+                in.close();
+                out.flush();
+                out.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Error copying trained data: ", e);
+            }
         }
+    }
 
-        // Extract job title
-        Pattern jobTitlePattern = Pattern.compile("Title\\s*:\\s*(.*)(?=\\n)", Pattern.CASE_INSENSITIVE);
-        Matcher jobTitleMatcher = jobTitlePattern.matcher(text);
-        if (jobTitleMatcher.find()) {
-            info.jobTitle = jobTitleMatcher.group(1).trim();
+    private void requestPermissions() {
+        if (allPermissionsGranted()) {
+            startCamera();
+        } else {
+            ActivityCompat.requestPermissions(this, PERMISSIONS_REQUIRED, REQUEST_CODE_PERMISSIONS);
         }
-        return info;
+    }
+
+    private boolean allPermissionsGranted() {
+        for (String permission : PERMISSIONS_REQUIRED) {
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
+            if (allPermissionsGranted()) {
+                startCamera();
+            } else {
+                Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        } else {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
     }
 }
+

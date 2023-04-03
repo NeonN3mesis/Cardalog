@@ -27,7 +27,7 @@ public class ConfirmDetailsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_confirm_details);
 
         Intent intent = getIntent();
-        BusinessCardInfo info = (BusinessCardInfo) intent.getExtras().get("info");
+        BinessCardInfo info = (BusinessCardInfo) intent.getExtras().get("info");
         Uri imageUri = Uri.parse(intent.getStringExtra("imageUri"));
 
         // Populate EditText fields with extracted information
