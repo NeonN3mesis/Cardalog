@@ -5,5 +5,6 @@ rootProject.name = "Cardalog"
 include ':app'
 include ':sdk'
 include ':opencv'
-include ':app', ':opencv'
+include ':app', ':opencvlib'
 
+include ':opencvlib'
