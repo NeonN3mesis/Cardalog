@@ -1,12 +1,12 @@
 package com.example.cardalog;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
-import androidx.appcompat.app.AppCompatActivity;
-import android.content.Intent;
 
+import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -35,7 +35,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 // Perform actions when the addContactButton is clicked
-                Toast.makeText(MainActivity.this, "Add Contact clicked!", Toast.LENGTH_SHORT).show();
+                addNewContact();
             }
         });
 
@@ -44,8 +44,18 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 // Perform actions when the generateCsvButton is clicked
-                Toast.makeText(MainActivity.this, "Generate CSV clicked!", Toast.LENGTH_SHORT).show();
+                generateCsvFile();
             }
         });
+    }
+
+    private void addNewContact() {
+        // Implement the functionality to add a new contact
+        Toast.makeText(MainActivity.this, "Add Contact clicked!", Toast.LENGTH_SHORT).show();
+    }
+
+    private void generateCsvFile() {
+        // Implement the functionality to generate a CSV file with the extracted information
+        Toast.makeText(MainActivity.this, "Generate CSV clicked!", Toast.LENGTH_SHORT).show();
     }
 }

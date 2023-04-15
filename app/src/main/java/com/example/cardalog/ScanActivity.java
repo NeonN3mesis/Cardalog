@@ -1,7 +1,6 @@
 package com.example.cardalog;
 
 import android.Manifest;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -25,18 +24,18 @@ import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
-import androidx.core.app.ActivityCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.googlecode.tesseract.android.TessBaseAPI;
+import com.example.cardalog.BusinessCardInfo;
 
+import org.opencv.android.OpenCVLoader;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.android.OpenCVLoader;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -44,8 +43,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.ExecutionException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class ScanActivity extends AppCompatActivity {
 
@@ -113,14 +110,23 @@ public class ScanActivity extends AppCompatActivity {
         TextView websiteTextView = findViewById(R.id.website);
         TextView addressTextView = findViewById(R.id.address);
 
-        BusinessCardInfo info = new BusinessCardInfo();
-        info.setName("John Doe");
-        info.setJobTitle("Software Engineer");
-        info.setBusinessName("Example Company");
-        info.setPhoneNumber("123-456-7890");
-        info.setEmail("john.doe@example.com");
-        info.setWebsite("www.example.com");
-        info.setAddress("123 Example Street, City, Country");
+        BusinessCardInfo info = new BusinessCardInfo(
+                "John Doe",
+                "Software Engineer",
+                "Example Company",
+                "123-456-7890",
+                "john.doe@example.com",
+                "www.example.com",
+                "123 Example Street, City, Country"
+        );
+        updateTextViews(info);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            startCamera();
+        } else {
+            requestPermissions();
+        }
+
 
         nameTextView.setText(info.getName());
         titleTextView.setText(info.getJobTitle());
@@ -130,6 +136,7 @@ public class ScanActivity extends AppCompatActivity {
         websiteTextView.setText(info.getWebsite());
         addressTextView.setText(info.getAddress());
     }
+
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
@@ -200,6 +207,30 @@ public class ScanActivity extends AppCompatActivity {
 
         // You can now use the recognized text to extract relevant information from the business card
         // For example, you can use regular expressions to extract phone numbers, email addresses, and more
+
+        // Assuming you have implemented a method called "extractBusinessCardInfo" that takes the recognized text
+        // and returns a BusinessCardInfo object with the extracted information:
+        BusinessCardInfo extractedInfo = extractBusinessCardInfo(text);
+        updateTextViews(extractedInfo);
+    }
+
+    private void updateTextViews(BusinessCardInfo info) {
+        TextView nameTextView = findViewById(R.id.name);
+        TextView titleTextView = findViewById(R.id.Title);
+        TextView companyTextView = findViewById(R.id.company);
+        TextView phoneNumberTextView = findViewById(R.id.phone_number);
+        TextView emailTextView = findViewById(R.id.email);
+        TextView websiteTextView = findViewById(R.id.website);
+        TextView addressTextView = findViewById(R.id.address);
+
+        nameTextView.setText(info.getName());
+        titleTextView.setText(info.getJobTitle());
+        companyTextView.setText(info.getBusinessName());
+        phoneNumberTextView.setText(info.getPhoneNumber());
+        emailTextView.setText(info.getEmail());
+        websiteTextView.setText(info.getWebsite());
+        addressTextView.setText(info.getAddress());
+    }
     }
 
     private void initializeTesseract(String language) {

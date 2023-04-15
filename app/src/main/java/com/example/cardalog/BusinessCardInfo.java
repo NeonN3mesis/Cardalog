@@ -67,4 +67,21 @@ public class BusinessCardInfo implements Serializable {
     public void setWebsite(String website) {
         this.website = website;
     }
+
+    public String name;
+    public String phoneNumber;
+    public String email;
+    public String address;
+    public String businessName;
+    public String jobTitle;
+    public String website;
+
+    public BusinessCardInfo(String name, String jobTitle, String businessName, String phoneNumber, String email, String website, String address) {
+        this.name = name;
+        this.jobTitle = jobTitle;
+        this.businessName = businessName;
+        this.phoneNumber = phoneNumber;
+        this.email = email;
+        this.website = website;
+        this.address = address;
 }
