@@ -27,7 +27,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <activity android:name=".ScanActivity" />
-        <activity android:name=".ConfirmDetailsActivity" /> <!-- Add this line -->
+        <activity android:name=".ConfirmDetailsActivity" />
 
         <activity android:name=".MainActivity"
             android:exported="true">
