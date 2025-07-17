@@ -39,11 +39,11 @@ public class ConfirmDetailsActivity extends AppCompatActivity {
         Uri imageUri = Uri.parse(intent.getStringExtra("imageUri"));
 
         // Find the EditText fields in the layout
-        nameEditText = findViewById(R.id.nameEditText);
-        phoneEditText = findViewById(R.id.phoneEditText);
-        emailEditText = findViewById(R.id.emailEditText);
-        companyEditText = findViewById(R.id.companyEditText);
-        addressEditText = findViewById(R.id.addressEditText);
+        nameEditText = findViewById(R.id.name);
+        phoneEditText = findViewById(R.id.phone_number);
+        emailEditText = findViewById(R.id.email);
+        companyEditText = findViewById(R.id.business_name);
+        addressEditText = findViewById(R.id.address);
 
         // Populate EditText fields with extracted information
         nameEditText.setText(info.getName());

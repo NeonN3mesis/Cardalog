@@ -79,13 +79,4 @@
         app:layout_constraintStart_toEndOf="@id/confirm_button"
         app:layout_constraintTop_toBottomOf="@id/job_title" />
 
-    <Button
-        android:id="@+id/cancel_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Cancel"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/confirm_button"
-        app:layout_constraintTop_toBottomOf="@id/job_title" />
-
 </androidx.constraintlayout.widget.ConstraintLayout>
