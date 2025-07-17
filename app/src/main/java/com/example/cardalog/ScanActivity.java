@@ -231,7 +231,6 @@ public class ScanActivity extends AppCompatActivity {
         websiteTextView.setText(info.getWebsite());
         addressTextView.setText(info.getAddress());
     }
-    }
 
     private void initializeTesseract(String language) {
         String datapath = getFilesDir() + "/tesseract/";
