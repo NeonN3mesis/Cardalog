@@ -43,6 +43,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ScanActivity extends AppCompatActivity {
 
@@ -208,10 +210,77 @@ public class ScanActivity extends AppCompatActivity {
         // You can now use the recognized text to extract relevant information from the business card
         // For example, you can use regular expressions to extract phone numbers, email addresses, and more
 
-        // Assuming you have implemented a method called "extractBusinessCardInfo" that takes the recognized text
-        // and returns a BusinessCardInfo object with the extracted information:
+        // Parse the recognized text into a BusinessCardInfo object.
         BusinessCardInfo extractedInfo = extractBusinessCardInfo(text);
         updateTextViews(extractedInfo);
+    }
+
+    /**
+     * Extracts common business card fields from the raw OCR text.
+     * The method performs best‑effort parsing and might return empty strings
+     * for fields that cannot be detected.
+     */
+    private BusinessCardInfo extractBusinessCardInfo(String text) {
+        String name = "";
+        String phone = "";
+        String email = "";
+        String website = "";
+        String company = "";
+        String title = "";
+        String address = "";
+
+        // Regular expressions for phone numbers, emails and websites
+        Pattern phonePattern = Pattern.compile("(\\+?\\d[\\d\\s().-]{7,}\\d)");
+        Pattern emailPattern = Pattern.compile("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", Pattern.CASE_INSENSITIVE);
+        Pattern websitePattern = Pattern.compile("(https?://)?(www\\.)?[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
+
+        Matcher matcher = phonePattern.matcher(text);
+        if (matcher.find()) {
+            phone = matcher.group(1).trim();
+        }
+
+        matcher = emailPattern.matcher(text);
+        if (matcher.find()) {
+            email = matcher.group().trim();
+        }
+
+        matcher = websitePattern.matcher(text);
+        if (matcher.find()) {
+            website = matcher.group().trim();
+        }
+
+        // Split text into lines for easier heuristics on name, title, etc.
+        String[] lines = text.split("\\n");
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+
+            if (name.isEmpty() && !line.matches(".*\\d.*") && !line.contains("@")
+                    && !line.toLowerCase().contains("www")) {
+                name = line;
+                continue;
+            }
+
+            if (title.isEmpty() && !line.matches(".*\\d.*") && !line.contains("@")
+                    && !line.toLowerCase().contains("www")) {
+                title = line;
+                continue;
+            }
+
+            if (company.isEmpty() && !line.contains("@") && !line.toLowerCase().contains("www")) {
+                company = line;
+                continue;
+            }
+
+            if (address.isEmpty() && (line.matches(".*\\d+.*") || line.toLowerCase().contains("street")
+                    || line.toLowerCase().contains("road") || line.toLowerCase().contains("ave"))) {
+                address = line;
+            }
+        }
+
+        return new BusinessCardInfo(name, title, company, phone, email, website, address);
     }
 
     private void updateTextViews(BusinessCardInfo info) {
