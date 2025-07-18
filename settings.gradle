@@ -2,9 +2,7 @@ pluginManagement {
 
 }
 rootProject.name = "Cardalog"
-include ':app'
-include ':sdk'
-include ':opencv'
-include ':app', ':opencvlib'
 
-include ':opencvlib'
+// Only include modules that actually exist in the repository
+include(":app")
+include(":opencvlib")
