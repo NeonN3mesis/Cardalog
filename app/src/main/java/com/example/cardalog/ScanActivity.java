@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
@@ -62,6 +63,8 @@ public class ScanActivity extends AppCompatActivity {
     private ImageButton captureImageButton;
 
     private TessBaseAPI tessBaseAPI;
+    private Uri currentImageUri;
+    private BusinessCardInfo currentInfo;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(),
@@ -177,6 +180,7 @@ public class ScanActivity extends AppCompatActivity {
                 if (savedUri == null) {
                     savedUri = Uri.fromFile(new File(getCacheDir(), "tmp.jpg"));
                 }
+                currentImageUri = savedUri;
                 analyzeImage(savedUri);
             }
 
@@ -212,7 +216,9 @@ public class ScanActivity extends AppCompatActivity {
 
         // Parse the recognized text into a BusinessCardInfo object.
         BusinessCardInfo extractedInfo = extractBusinessCardInfo(text);
+        currentInfo = extractedInfo;
         updateTextViews(extractedInfo);
+        launchConfirmActivity();
     }
 
     /**
@@ -299,6 +305,17 @@ public class ScanActivity extends AppCompatActivity {
         emailTextView.setText(info.getEmail());
         websiteTextView.setText(info.getWebsite());
         addressTextView.setText(info.getAddress());
+    }
+
+    private void launchConfirmActivity() {
+        if (currentInfo == null || currentImageUri == null) {
+            return;
+        }
+
+        Intent intent = new Intent(this, ConfirmDetailsActivity.class);
+        intent.putExtra("info", currentInfo);
+        intent.putExtra("imageUri", currentImageUri.toString());
+        startActivity(intent);
     }
 
     private void initializeTesseract(String language) {
