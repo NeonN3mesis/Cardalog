@@ -1,8 +1,0 @@
-pluginManagement {
-
-}
-rootProject.name = "Cardalog"
-
-// Only include modules that actually exist in the repository
-include(":app")
-include(":opencvlib")
